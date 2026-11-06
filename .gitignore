@@ -1,0 +1,6 @@
+# Nunca al repositorio: secretos, discos, imágenes y evidencias personales
+secreto.env
+*.env.secret
+*.qcow2
+*.iso
+evidencias/
