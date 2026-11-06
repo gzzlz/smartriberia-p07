@@ -226,7 +226,7 @@ if [[ "$DRY" == "--dry-run" ]]; then
   comprobar "virt-install acepta todas las opciones" "$(grep -m1 -i error <<<"$XMLP")" grep -q '<domain' <<<"$XMLP"
   comprobar "XML con canal org.qemu.guest_agent.0" "La opción --channel del agente no se ha aplicado" grep -q "org.qemu.guest_agent.0" <<<"$XMLP"
   comprobar "XML con macvtap (interface type='direct') y MAC $MAC_LAN" "Revisa --network type=direct" \
-    bash -c "grep -q \"interface type='direct'\" <<<\"\$0\" && grep -qi '$MAC_LAN' <<<\"\$0\"" "$XMLP"
+    bash -c "grep -qE \"interface type=[\\\"']direct[\\\"']\" <<<\"\$0\" && grep -qi '$MAC_LAN' <<<\"\$0\"" "$XMLP"
   CANALES="$(grep -A3 '<channel' <<<"$XMLP" || true)"
   [[ -n "$CANALES" ]] && bloque "Canales en el XML" <<<"$CANALES"
   seccion "Ficheros generados"
