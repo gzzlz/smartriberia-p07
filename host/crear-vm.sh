@@ -68,7 +68,9 @@ comprobar "SHA512 coincide con el oficial" "Descarga corrupta o build distinta a
   bash -c "cd '$SR_HOME/imagenes' && grep ' ${IMAGEN}\$' SHA512SUMS | sha512sum -c --quiet -"
 
 seccion "4. Red"
-if [[ -n "$IFACE" ]] && ip link show "$IFACE" | grep -q 'state UP'; then ok "Interfaz física $IFACE activa (ruta por defecto)"
+# Nota: nada de "cmd | grep -q" en el shell principal (pipefail + SIGPIPE = falso KO)
+LINK="$(ip link show "$IFACE" 2>/dev/null || true)"
+if [[ -n "$IFACE" ]] && grep -q 'state UP' <<<"$LINK"; then ok "Interfaz física $IFACE activa (ruta por defecto)"
 else ko "Interfaz física no detectada o caída" "Comprueba el cable y 'ip route'"; fi
 comprobar "Red $MGMT_RED creada y activa" "Ejecuta host/crear-red-mgmt.sh" \
   bash -c "${V[*]} net-info $MGMT_RED | grep -q '^Active: *yes'"
@@ -84,7 +86,8 @@ for m in "$MAC_LAN" "$MAC_MGMT"; do
   else ok "MAC $m libre en este host"; fi
 done
 ping -c1 -W1 "$IP" >/dev/null 2>&1 || true
-if ip neigh show "$IP" 2>/dev/null | grep -q lladdr; then ko "IP $IP libre en la LAN" "Otro equipo responde con esa IP: ¿grupo o puesto equivocado?"
+VECINO="$(ip neigh show "$IP" 2>/dev/null || true)"
+if grep -q lladdr <<<"$VECINO"; then ko "IP $IP libre en la LAN" "Otro equipo responde con esa IP: ¿grupo o puesto equivocado?"
 else ok "IP $IP libre en la LAN"; fi
 
 parar_si_ko
@@ -178,10 +181,12 @@ EOF
 for f in user-data meta-data network-config; do
   comprobar "Fichero $f generado" "" test -s "$SEMILLA_DIR/$f"
 done
-if python3 -c "import yaml" >/dev/null 2>&1; then
+PY=""
+for c in /usr/bin/python3 python3; do "$c" -c "import yaml" >/dev/null 2>&1 && { PY="$c"; break; }; done
+if [[ -n "$PY" ]]; then
   for f in user-data meta-data network-config; do
     comprobar "YAML válido: $f" "Error de sintaxis en la semilla" \
-      python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$SEMILLA_DIR/$f"
+      "$PY" -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$SEMILLA_DIR/$f"
   done
 else
   aviso "No se valida el YAML" "python3 sin el módulo yaml en este host"
@@ -201,8 +206,9 @@ parar_si_ko
 
 # --- 4. Comando virt-install ---------------------------------------------------
 OSV=linux2022
+OSLIST="$(virt-install --osinfo list 2>/dev/null || true)"
 for v in debian13 debian12; do
-  virt-install --osinfo list 2>/dev/null | grep -qw "$v" && { OSV="$v"; break; }
+  grep -qw "$v" <<<"$OSLIST" && { OSV="$v"; break; }
 done
 
 CMD=(virt-install --connect qemu:///system

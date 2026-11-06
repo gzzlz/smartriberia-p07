@@ -32,7 +32,9 @@ EOF
   comprobar "Red definida" "Revisa permisos del grupo libvirt" "${V[@]}" net-define "$XML"
   rm -f "$XML"
 fi
-"${V[@]}" net-info "$MGMT_RED" 2>/dev/null | grep -q '^Active: *yes' || "${V[@]}" net-start "$MGMT_RED" >/dev/null
+# Sin tuberías con grep -q: con pipefail, el SIGPIPE de virsh daría un falso "inactiva"
+INFO="$("${V[@]}" net-info "$MGMT_RED" 2>/dev/null || true)"
+grep -q '^Active: *yes' <<<"$INFO" || "${V[@]}" net-start "$MGMT_RED" >/dev/null
 "${V[@]}" net-autostart "$MGMT_RED" >/dev/null
 
 seccion "Comprobaciones"
