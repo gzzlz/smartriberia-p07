@@ -15,7 +15,7 @@ seccion "Parámetros"
 dato "Red"     "$MGMT_RED"
 dato "Bridge"  "$MGMT_BRIDGE"
 dato "IP host" "$MGMT_HOST_IP/$MGMT_LEN"
-dato "IP VM"   "$MGMT_VM_IP/$MGMT_LEN (la misma en todos los PCs: no sale del PC)"
+dato "IP VM"   "${MGMT_PREFIJO}.(10+X)/$MGMT_LEN según el puesto (cp1=.11 … w3=.16)"
 
 seccion "Creación"
 if "${V[@]}" net-info "$MGMT_RED" >/dev/null 2>&1; then

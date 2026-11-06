@@ -18,13 +18,8 @@ source "$REPO/grupos/comun.env"
 source "$REPO/grupos/g${GRUPO_ARG}.env"
 V=(virsh -c qemu:///system)
 
-# --- Derivar todo del grupo y del puesto -----------------------------------
-X=""
-for p in $PUESTOS; do [[ "${p%%:*}" == "$PUESTO" ]] && X="${p##*:}"; done
-NOMBRE="g${GRUPO}-${PUESTO}"
-IP="${RED_PREFIJO}.$((10 + ${X:-0}))"
-MAC_LAN="52:54:00:00:0${GRUPO}:0${X}"
-MAC_MGMT="52:54:00:00:0${GRUPO}:1${X}"
+# --- Derivar todo del grupo y del puesto (regla única en lib/puesto.sh) ------
+source "$REPO/lib/puesto.sh"
 IFACE="$(ip route show default | awk '{print $5; exit}')"
 BASE="$SR_HOME/imagenes/$IMAGEN"
 DISCO="$SR_HOME/vms/${NOMBRE}.qcow2"
@@ -122,8 +117,8 @@ EOF
 # /etc/hosts con los 6 nodos del grupo (no hay DNS interno en el aula)
 HOSTS=""
 for p in $PUESTOS; do
-  n="${p%%:*}"; x="${p##*:}"
-  HOSTS+="      ${RED_PREFIJO}.$((10 + x)) g${GRUPO}-${n}"$'\n'
+  n="${p%%:*}"
+  HOSTS+="      $(ip_de "$n") g${GRUPO}-${n}"$'\n'
 done
 
 cat > "$SEMILLA_DIR/user-data" <<EOF
