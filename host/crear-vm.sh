@@ -149,8 +149,11 @@ write_files:
       127.0.0.1 localhost
       ::1 localhost ip6-localhost ip6-loopback
 ${HOSTS}
-# Sin runcmd: qemu-guest-agent es una unidad "static" que udev arranca sola
-# cuando existe el canal virtio org.qemu.guest_agent.0 (lo añade virt-install).
+# qemu-guest-agent es "static" (no se hace enable): udev lo arranca al ver el canal
+# virtio, pero en el PRIMER arranque el paquete aún no está instalado cuando aparece
+# el dispositivo. runcmd va después de instalar paquetes, así que aquí basta un start.
+runcmd:
+  - [systemctl, start, qemu-guest-agent]
 EOF
 
 cat > "$SEMILLA_DIR/network-config" <<EOF

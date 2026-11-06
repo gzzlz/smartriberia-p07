@@ -62,6 +62,11 @@ FUENTES="$(chronyc -n sources 2>/dev/null || true)"
 # --- cloud-init y paquetes ---------------------------------------------------------
 seccion "4. cloud-init y paquetes"
 CI="$(cloud-init status 2>/dev/null || true)"
+if grep -q 'running' <<<"$CI"; then
+  info "cloud-init sigue en marcha: esperando a que termine (máx. 5 min)…"
+  timeout 300 cloud-init status --wait >/dev/null 2>&1 || true
+  CI="$(cloud-init status 2>/dev/null || true)"
+fi
 if grep -q 'status: done' <<<"$CI"; then ok "cloud-init terminado (status: done)"
 elif grep -q 'running' <<<"$CI"; then aviso "cloud-init aún en ejecución" "Espera y repite el script"
 else ko "cloud-init: $(tr '\n' ' ' <<<"$CI")" "Detalle: cloud-init status --long; sudo grep -i fail /var/log/cloud-init.log"; fi
