@@ -149,8 +149,8 @@ write_files:
       127.0.0.1 localhost
       ::1 localhost ip6-localhost ip6-loopback
 ${HOSTS}
-runcmd:
-  - [systemctl, enable, --now, qemu-guest-agent]
+# Sin runcmd: qemu-guest-agent es una unidad "static" que udev arranca sola
+# cuando existe el canal virtio org.qemu.guest_agent.0 (lo añade virt-install).
 EOF
 
 cat > "$SEMILLA_DIR/network-config" <<EOF
@@ -214,9 +214,21 @@ CMD=(virt-install --connect qemu:///system
   --network "type=direct,source=$IFACE,source_mode=bridge,mac=$MAC_LAN,model=virtio"
   --network "network=$MGMT_RED,mac=$MAC_MGMT,model=virtio"
   --graphics spice --video virtio --channel spicevmc
+  --channel unix,target.type=virtio,target.name=org.qemu.guest_agent.0
   --noautoconsole)
 
 if [[ "$DRY" == "--dry-run" ]]; then
+  # Validación real de la sintaxis: virt-install genera el XML sin crear la VM.
+  # Se usa la imagen base (que existe) en lugar del disco, que aún no existe.
+  seccion "8. Validación de virt-install (--print-xml, no crea nada)"
+  PCMD=("${CMD[@]/path=$DISCO,/path=$BASE,}")
+  XMLP="$("${PCMD[@]}" --print-xml 2>&1 || true)"
+  comprobar "virt-install acepta todas las opciones" "$(grep -m1 -i error <<<"$XMLP")" grep -q '<domain' <<<"$XMLP"
+  comprobar "XML con canal org.qemu.guest_agent.0" "La opción --channel del agente no se ha aplicado" grep -q "org.qemu.guest_agent.0" <<<"$XMLP"
+  comprobar "XML con macvtap (interface type='direct') y MAC $MAC_LAN" "Revisa --network type=direct" \
+    bash -c "grep -q \"interface type='direct'\" <<<\"\$0\" && grep -qi '$MAC_LAN' <<<\"\$0\"" "$XMLP"
+  CANALES="$(grep -A3 '<channel' <<<"$XMLP" || true)"
+  [[ -n "$CANALES" ]] && bloque "Canales en el XML" <<<"$CANALES"
   seccion "Ficheros generados"
   bloque "user-data"      < "$SEMILLA_DIR/user-data"
   bloque "network-config" < "$SEMILLA_DIR/network-config"
@@ -240,6 +252,8 @@ else ko "virt-install ha fallado" "Mira $SEMILLA_DIR/virt-install.log"; fi
 sleep 3
 comprobar "VM $NOMBRE en estado 'running'" "virsh -c qemu:///system domstate $NOMBRE" \
   bash -c "${V[*]} domstate $NOMBRE | grep -q running"
+comprobar "Canal virtio del agente de QEMU presente" "Sin él no arranca qemu-guest-agent" \
+  bash -c "${V[*]} dumpxml $NOMBRE | grep -q org.qemu.guest_agent.0"
 
 if resumen; then
   info "Consola: ${C_N}virt-viewer -c qemu:///system $NOMBRE${C_0}  (o virt-manager)"

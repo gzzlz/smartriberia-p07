@@ -64,10 +64,11 @@ seccion "4. cloud-init y paquetes"
 CI="$(cloud-init status 2>/dev/null || true)"
 if grep -q 'status: done' <<<"$CI"; then ok "cloud-init terminado (status: done)"
 elif grep -q 'running' <<<"$CI"; then aviso "cloud-init aún en ejecución" "Espera y repite el script"
-else ko "cloud-init: $(tr '\n' ' ' <<<"$CI")" "Revisa: sudo cloud-init status --long"; fi
+else ko "cloud-init: $(tr '\n' ' ' <<<"$CI")" "Detalle: cloud-init status --long; sudo grep -i fail /var/log/cloud-init.log"; fi
 for pk in qemu-guest-agent chrony curl; do
   comprobar "Paquete instalado: $pk" "No se instaló: ¿había Internet en el primer arranque?" dpkg -s "$pk"
 done
+comprobar "Canal virtio del agente (/dev/virtio-ports/org.qemu.guest_agent.0)" "Falta --channel del agente en virt-install" test -e /dev/virtio-ports/org.qemu.guest_agent.0
 comprobar "Servicio qemu-guest-agent activo" "sudo systemctl status qemu-guest-agent" systemctl is-active --quiet qemu-guest-agent
 
 # --- Internet ------------------------------------------------------------------------
