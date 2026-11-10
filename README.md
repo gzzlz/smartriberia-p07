@@ -13,10 +13,16 @@ se corrige aquí, se etiqueta y se vuelve a ejecutar.
 | `grupos/comun.env` | Imagen fijada, recursos, red del aula, NTP, red de gestión, puestos |
 | `grupos/g1.env` ... `g3.env` | `IP_BASE` del grupo, CIDR de pods/servicios, nombre e ID de Cilium |
 | `host/crear-red-mgmt.sh` | Red aislada `rke2-mgmt` (192.168.200.0/24) para entrar a la VM desde su PC |
+| `host/descargar-rke2.sh` | Hito 02: descarga y verifica (SHA-256) los artefactos air-gap de la versión fijada de RKE2 |
+| `host/crear-token.sh` | Hito 02: genera el token del grupo (solo el piloto); fuera del repositorio |
+| `host/enviar-a-vm.sh` | Envía a la VM el repositorio, los artefactos y el token |
+| `vm/preparar-nodo.sh` | Hito 02: módulos, sysctl y networkd para RKE2 + Cilium |
+| `vm/instalar-rke2.sh` | Hito 02: genera config.yaml según el rol e instala RKE2 (con --dry-run) |
+| `vm/comprobar-hito02.sh` | Hito 02: comprobación y evidencia del primer servidor |
 | `host/crear-vm.sh` | Copia independiente del disco + semilla cloud-init + `virt-install` |
 
 ## Fuera del repositorio (en `~/smartriberia/`)
-`imagenes/` (base + SHA512SUMS), `vms/` (discos y semillas), `secreto.env` (hash de la contraseña, chmod 600).
+`imagenes/` (base + SHA512SUMS), `vms/` (discos y semillas), `secreto.env` (hash de la contraseña, chmod 600), `rke2/<versión>/` (artefactos), `token-gN.secreto` (token del grupo, chmod 600).
 
 ## Esquema de cada puesto (N = grupo, X = 1..6 para cp1..w3)
 IP aula `172.30.101.(200+10N+X)/16` (G1 .211-216, G2 .221-226, G3 .231-236) · IP gestión `192.168.200.(10+X)` ·
