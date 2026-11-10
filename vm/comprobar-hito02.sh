@@ -16,6 +16,7 @@ K=(kubectl --kubeconfig "$HOME/.kube/config")
 
 main() {
 source "$REPO/lib/ui.sh"
+source "$REPO/lib/k8s.sh"
 titulo "SmartRiberIA · Hito 02 · $NOMBRE" "VM: $(hostname) · $(date '+%F %T %Z') · repo $(cat "$REPO/.version" 2>/dev/null || echo '?')"
 
 seccion "1. RKE2"
@@ -42,6 +43,10 @@ TAINTS="$("${K[@]}" get node "$NOMBRE" -o jsonpath='{.spec.taints}' 2>/dev/null 
 if [[ -z "$TAINTS" || "$TAINTS" == "[]" ]]; then ok "Sin taints: el servidor también ejecuta cargas"; else aviso "Taints: $TAINTS"; fi
 
 seccion "3. Pods del sistema"
+if [[ -n "$(sistema_pendiente)" ]]; then
+  info "El sistema aún está arrancando: esperando hasta 5 min a Cilium, CoreDNS, Hubble y charts…"
+  if esperar_sistema 300; then ok "Sistema listo tras la espera"; else ko "Siguen sin terminar: $PENDIENTE" "kubectl -n kube-system get pods"; fi
+fi
 PODS="$("${K[@]}" get pods -A -o wide 2>/dev/null || true)"
 bloque "kubectl get pods -A -o wide" <<<"$PODS"
 MALOS="$(awk 'NR>1 && $4 ~ /CrashLoopBackOff|Error|ImagePull|ErrImage|CreateContainer/' <<<"$PODS")"

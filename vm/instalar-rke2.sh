@@ -150,8 +150,13 @@ if [[ "$TIPO" == server ]]; then
   grep -q '/var/lib/rancher/rke2/bin' "$HOME/.bashrc" || echo 'export PATH="$PATH:/var/lib/rancher/rke2/bin"' >> "$HOME/.bashrc"
   ok "kubectl en el PATH (abre una sesión nueva o: source ~/.bashrc)"
   info "Esperando a que el nodo esté Ready (máx. 10 min)…"
-  if kubectl --kubeconfig "$HOME/.kube/config" wait --for=condition=Ready "node/$NOMBRE" --timeout=600s >/dev/null 2>&1; then ok "Nodo $NOMBRE Ready"
+  if kubectl --kubeconfig "$HOME/.kube/config" wait --for=condition=Ready "node/$NOMBRE" --timeout=600s </dev/null >/dev/null 2>&1; then ok "Nodo $NOMBRE Ready"
   else ko "Nodo $NOMBRE no está Ready" "kubectl get pods -A ; kubectl describe node $NOMBRE"; fi
+  # Ready llega antes que Cilium, CoreDNS y Hubble: esperar al estado final, no a uno intermedio.
+  K=(kubectl --kubeconfig "$HOME/.kube/config"); source "$REPO/lib/k8s.sh"
+  info "Esperando a Cilium, CoreDNS, Hubble y la instalación de charts (máx. 10 min)…"
+  if esperar_sistema 600; then ok "Componentes del sistema listos"
+  else ko "Componentes sin terminar: $PENDIENTE" "kubectl -n kube-system get pods"; fi
 fi
 
 if resumen; then info "Siguiente: ${C_N}bash ~/repo/vm/comprobar-hito02.sh $GRUPO $PUESTO${C_0}"; else exit 1; fi
