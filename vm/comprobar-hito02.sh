@@ -79,10 +79,21 @@ PCIDR="$("${K[@]}" get node "$NOMBRE" -o jsonpath='{.spec.podCIDR}' 2>/dev/null 
 [[ "${PCIDR%.*.*}" == "${POD_CIDR%.*.*}" ]] && ok "podCIDR del nodo $PCIDR (dentro de $POD_CIDR)" || ko "podCIDR $PCIDR fuera de $POD_CIDR"
 
 seccion "6. Prueba con un pod: DNS interno, DNS externo e Internet"
-"${K[@]}" delete pod prueba-hito02 --ignore-not-found --wait=true >/dev/null 2>&1 || true
-SAL="$(timeout 240 "${K[@]}" run prueba-hito02 --image=docker.io/library/busybox:1.36 --restart=Never --rm -i --quiet \
-  --pod-running-timeout=180s --command -- sh -c \
-  'nslookup kubernetes.default.svc.cluster.local >/dev/null 2>&1 && echo DNS_INTERNO_OK; nslookup deb.debian.org >/dev/null 2>&1 && echo DNS_EXTERNO_OK; wget -q -T 8 -O /dev/null http://deb.debian.org/ && echo INTERNET_OK; hostname -i' 2>&1 || true)"
+# Sin modo interactivo (-i): un kubectl que lee del terminal dentro de timeout queda detenido (SIGTTIN).
+PRUEBA_CMD='nslookup kubernetes.default.svc.cluster.local >/dev/null 2>&1 && echo DNS_INTERNO_OK; nslookup deb.debian.org >/dev/null 2>&1 && echo DNS_EXTERNO_OK; wget -q -T 8 -O /dev/null http://deb.debian.org/ && echo INTERNET_OK; hostname -i'
+"${K[@]}" delete pod prueba-hito02 --ignore-not-found --wait=true </dev/null >/dev/null 2>&1 || true
+if "${K[@]}" run prueba-hito02 --image=docker.io/library/busybox:1.36 --restart=Never --command -- sh -c "$PRUEBA_CMD" </dev/null >/dev/null 2>&1; then
+  ok "Pod de prueba creado (busybox desde Docker Hub)"
+else ko "No se pudo crear el pod de prueba"; fi
+info "Esperando a que el pod termine (máx. 3 min)…"
+if "${K[@]}" wait pod/prueba-hito02 --for=jsonpath='{.status.phase}'=Succeeded --timeout=180s </dev/null >/dev/null 2>&1; then
+  ok "Pod de prueba terminado"
+else
+  EV="$("${K[@]}" get events --field-selector involvedObject.name=prueba-hito02 -o custom-columns=MOTIVO:.reason,MENSAJE:.message --no-headers </dev/null 2>&1 | tail -3)"
+  ko "El pod de prueba no terminó en 3 min" "Eventos: $(tr '\n' ' ' <<<"$EV")"
+fi
+SAL="$("${K[@]}" logs prueba-hito02 </dev/null 2>&1 || true)"
+"${K[@]}" delete pod prueba-hito02 --ignore-not-found --wait=false </dev/null >/dev/null 2>&1 || true
 grep -q DNS_INTERNO_OK <<<"$SAL" && ok "Pod resuelve kubernetes.default (CoreDNS)" || ko "Pod no resuelve nombres internos" "kubectl -n kube-system logs -l k8s-app=kube-dns"
 grep -q DNS_EXTERNO_OK <<<"$SAL" && ok "Pod resuelve deb.debian.org (reenvío a 8.8.8.8)" || ko "Pod no resuelve nombres externos" "¿resolv-conf del kubelet?"
 grep -q INTERNET_OK    <<<"$SAL" && ok "Pod sale a Internet (masquerade por lan0)" || ko "Pod sin salida a Internet"
